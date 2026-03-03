@@ -5352,6 +5352,29 @@ window.addEventListener('load', () => {
   }, 1000);
 });
 
+// ══ SERVICE WORKER — enregistrement + nettoyage anciens SW ══
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      // 1. Désinscrire tous les anciens SW (ex: savoir-plus-v1)
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        const swURL = reg.active?.scriptURL || reg.installing?.scriptURL || '';
+        // Si c'est un ancien SW non-integral, le supprimer
+        if (!swURL.includes('sw.js') || swURL.includes('savoir-plus')) {
+          await reg.unregister();
+          console.log('[Integral] Ancien SW supprimé:', swURL);
+        }
+      }
+      // 2. Enregistrer le SW du restaurant
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      console.log('[Integral] SW enregistré:', reg.scope);
+    } catch(e) {
+      console.warn('[Integral] SW non disponible:', e.message);
+    }
+  });
+}
+
 // Test audio depuis l'écran CTA
 function demoTestAudio(){
   DEMO.unlockTTS();
