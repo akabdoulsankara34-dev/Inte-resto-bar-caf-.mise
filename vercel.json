@@ -27,16 +27,10 @@
       ]
     },
     {
-      "source": "/:file.(jpg|jpeg|png|gif|webp|svg|ico)",
+      "source": "/:path.(jpg|jpeg|png|gif|webp|svg|ico)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        { "key": "Cache-Control", "value": "public, max-age=31536000" }
       ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/((?!.*\\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|json|woff|woff2|ttf|otf|map)).*)",
-      "destination": "/index.html"
     }
   ]
 }
