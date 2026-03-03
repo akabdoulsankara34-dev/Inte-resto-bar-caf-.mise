@@ -1485,7 +1485,7 @@ body.kiosk-mode #demoBar { padding:12px 24px 16px }
   <svg id="ambIcon" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
 </button>
 <!-- POPUP OFFRE DU JOUR -->
-<div id="offreModal" style="display: none;">
+<div id="offreModal">
   <div class="offre-box">
     <div class="offre-header">
       <div class="offre-badge">⭐ Offre du Jour</div>
@@ -1580,10 +1580,10 @@ body.kiosk-mode #demoBar { padding:12px 24px 16px }
 <div id="hero">
   <!-- ══ DIAPORAMA PHOTOS ══ -->
   <div class="hero-slideshow">
-<div class="hero-slide active" style="background-image:url('images/photo1.jpg')"></div>
-<div class="hero-slide" style="background-image:url('images/photo2.jpg')"></div>
-<div class="hero-slide" style="background-image:url('images/photo3.jpg')"></div>
-<div class="hero-slide" style="background-image:url('images/photo4.jpg')"></div>
+<div class="hero-slide active" style="background-image:url('photo1.jpg')"></div>
+<div class="hero-slide" style="background-image:url('photo2.jpg')"></div>
+<div class="hero-slide" style="background-image:url('photo3.jpg')"></div>
+<div class="hero-slide" style="background-image:url('photo_4.jpeg')"></div>
   </div>
 
   <div class="hero-bg-pattern"></div>
@@ -3378,9 +3378,24 @@ function toggleOffreActive(id){
   if(!o) return;
   o.active = !o.active;
   localStorage.setItem('integral_offres', JSON.stringify(adminOffres));
-  if(o.active) applyOffreToPopup(o);
+
+  // Sync Firebase
+  if(window.__DB && window.__fb){
+    const {doc,setDoc} = window.__fb;
+    if(o.active){
+      // Activer : écrire l'offre complète avec active:true
+      setDoc(doc(window.__DB,'offres','current'), {...o, active:true}).catch(()=>{});
+      applyOffreToPopup(o);
+    } else {
+      // Désactiver : écrire active:false dans Firebase → clients ne verront plus le popup
+      setDoc(doc(window.__DB,'offres','current'), {active:false}, {merge:true}).catch(()=>{});
+    }
+  } else {
+    if(o.active) applyOffreToPopup(o);
+  }
+
   renderOffresList();
-  showToast(o.active ? 'Offre activée dans le popup ✅' : 'Offre désactivée','gold');
+  showToast(o.active ? 'Offre activée — visible par les clients ✅' : 'Offre désactivée — masquée pour les clients', o.active ? 'green' : 'gold');
 }
 
 function renderOffresList(){
@@ -4119,8 +4134,8 @@ document.addEventListener('keydown', e => {
 window.addEventListener('load', () => {
   setTimeout(() => document.getElementById('loader').classList.add('hide'), 1600);
   window.renderMenu();
-  // Popup offre du jour après 2.5s
-  setTimeout(openOffre, 2500);
+  // Popup offre du jour : uniquement si un admin a activé une offre
+  setTimeout(checkAndShowOffre, 2500);
   // Init heure ouverture
   updateOpenStatus();
   setInterval(updateOpenStatus, 60000);
@@ -4310,13 +4325,37 @@ function closeDishModal(){
 }
 
 // ── 8. OFFRE DU JOUR ─────────────────────────────
-function openOffre(){
-  const seen = sessionStorage.getItem('offre_seen');
-  if(seen) return;
-  sessionStorage.setItem('offre_seen','1');
-  document.getElementById('offreModal').classList.add('open');
-  document.body.style.overflow = 'hidden';
+
+// Vérifie dans Firebase si une offre est activée par l'admin
+// Si oui → affiche le popup, sinon → rien
+async function checkAndShowOffre(){
+  try {
+    if(!window.__DB || !window.__fb) return; // Firebase non dispo
+    const { doc, getDocs, collection } = window.__fb;
+    // Lecture directe du document courant
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(doc(window.__DB, 'offres', 'current'));
+    if(!snap.exists()) return;
+    const offre = snap.data();
+    if(!offre.active) return; // Désactivée par l'admin → ne pas afficher
+
+    // Appliquer le contenu de l'offre au popup puis l'afficher
+    applyOffreToPopup(offre);
+    const seen = sessionStorage.getItem('offre_seen');
+    if(seen) return;
+    sessionStorage.setItem('offre_seen','1');
+    document.getElementById('offreModal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } catch(e){
+    console.warn('Offre du jour non disponible:', e.message);
+    // Pas d'affichage en cas d'erreur
+  }
 }
+
+function openOffre(){
+  // Désormais inutilisée en auto — gardée pour compatibilité
+}
+
 function closeOffre(){
   document.getElementById('offreModal').classList.remove('open');
   document.body.style.overflow = '';
